@@ -17,12 +17,6 @@ class Board(list):
         self.letters = list(Board.LETTERS[:dimension])
         self.rows = list(reversed(range(1, dimension + 1)))
         self.fields = [l + str(d) for l, d in product(self.letters, self.rows)]
-        # fancy unicode/terminal stuff for pretty printing
-        straights = [u"\u2550"] * dimension
-        self.anchor = "\x1b7\x1b[4f"
-        self.top = u"\n   \u2554"+ u"\u2566".join(straights) + u"\u2557\n"
-        self.bottom = u"   \u255a"+ u"\u2569".join(straights) + u"\u255d\n    " + " ".join(self.letters) + "\n\x1b8"
-        self.bar = u"   \u2560" + u"\u256c".join(straights) + u"\u2563\n"
         # this is the important part: build a matrix filled with blanks
         super().__init__([[Game.BLANK for _ in range(dimension)] for _ in range(dimension)])
     def __call__(self, address, value=None):
@@ -35,6 +29,20 @@ class Board(list):
             self[self.dimension - int(address[1:])][self.letters.index(address[0])] = value
         else:
             return self[self.dimension - int(address[1:])][self.letters.index(address[0])]
+    def __repr__(self):
+        """
+        Generate a representation string so we can print the board by simply
+        stating print(self).
+        """
+        straights = [u"\u2550"] * self.dimension
+        anchor = "\x1b7\x1b[4f"
+        top = u"\n   \u2554"+ u"\u2566".join(straights) + u"\u2557\n"
+        bottom = u"   \u255a"+ u"\u2569".join(straights) + u"\u255d\n    " + " ".join(self.letters) + "\n\x1b8"
+        bar = u"   \u2560" + u"\u256c".join(straights) + u"\u2563\n"
+        interior = bar.join(
+            ["{:>2}".format(str(j)) + u" \u2551" + u"\u2551".join(s)  + u"\u2551\n"
+                            for j, s in zip(self.rows, self)])
+        return "".join([anchor, top, interior, bottom])
 
 class Game(object):
     """
@@ -94,7 +102,7 @@ class Game(object):
         legal one, move, try to determine a winner, and if there is none, hand
         over to the next player.
         """
-        print(self)
+        print(self.board)
         while True:
             # Remember: First component of self.current_player is the player's name
             move = input("{}, enter your move: ".format(self.current_player[0]))
@@ -107,7 +115,7 @@ class Game(object):
                 # Hand over to next player
                 self.current_player = next(self.player)
             else:
-                print(self)
+                print(self.board)
                 print("Congratulations, {}, you have won this game!".format(winner))
         except ValueError:
             print("Draw!")
@@ -123,19 +131,6 @@ class Game(object):
                 gameover = self.over()
             except:
                 gameover = True
-
-    def __repr__(self):
-        """
-        Generate a representation string so we can print the board by simply
-        stating print(self).
-        """
-        anchor = self.board.anchor
-        top = self.board.top
-        bottom = self.board.bottom
-        interior = self.board.bar.join(
-            ["{:>2}".format(str(j)) + u" \u2551" + u"\u2551".join(s)  + u"\u2551\n"
-                            for j, s in zip(self.board.rows, self.board)])
-        return "".join([anchor, top, interior, bottom])
 
 if __name__ == "__main__":
     """
