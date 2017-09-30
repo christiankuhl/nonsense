@@ -49,11 +49,10 @@ class Card(object):
                     + u"\u2502" + " " * 4 + Card.symbols[self.suite] + u"\u2502\n")
         return top + interior + bottom
 
-
 class Hand(list):
-    ALPHABET = "123456789abcdefghijklmnopqrstuvwxyz"
+    alphabet = "123456789abcdefghijklmnopqrstuvwxyz"
     def __call__(self, index):
-        position = Hand.ALPHABET.find(index.lower())
+        position = Hand.alphabet.find(index.lower())
         if position > -1:
             return self[position]
         else:
@@ -199,7 +198,6 @@ class HumanPlayer(Player):
             hand = "\n".join([" " * 59] * 7)
         return hand
 
-
 class Deck(list):
     suites = ["spades", "hearts", "diamonds", "clubs"]
     ranks = [str(n) for n in range(7, 11)] + ["jack", "queen", "king", "ace"]
@@ -215,7 +213,7 @@ class Game(object):
         self.central_stack = []
         self.player_list = [AIPlayer(self, "Fritz"), AIPlayer(self, "Franz"), HumanPlayer(self, "Horst")]
         self.players = cycle(self.player_list)
-        for _ in range(4):
+        for _ in range(7):
             for _ in range(3):
                 self.current_player = next(self.players)
                 self.current_player.take_card()
@@ -227,7 +225,6 @@ class Game(object):
     def is_legal(self, card):
         top_card = self.central_stack[-1]
         return top_card.suite == card.suite or top_card.rank == card.rank
-
     def play(self):
         os.system("clear")
         skipped = False
@@ -245,13 +242,12 @@ class Game(object):
                 else:
                     self.message.user_message("Congratulations, you have won this game!")
                 break
-
     def __repr__(self):
         anchor = "\x1b7\x1b[1;1f"
         cards = "\n".join([str(player) for player in self.player_list])
         center = [""] * 4 + [(" " * 7) + line for line in str(self.central_stack[-1]).splitlines()] + [""]*12
         all = "\n".join([anchor] + [c + l for c, l in zip(cards.splitlines(), center)] +
-                ["{:<59}".format("  ".join(["{:>2}".format(Hand.ALPHABET[i].upper()) for i in range(len(self.player_list[2].cards))]))] + ["\x1b8"])
+                ["{:<59}".format("  ".join(["{:>2}".format(Hand.alphabet[i].upper()) for i in range(len(self.player_list[2].cards))]))] + ["\x1b8"])
         return all
 
 if __name__ == "__main__":
