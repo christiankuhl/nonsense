@@ -2,12 +2,13 @@
 
 from itertools import product, cycle
 from collections import defaultdict, deque
-from random import shuffle
+from random import shuffle, randint
 import time
 import os
 import sys
 import tty
 import termios
+import types
 
 class MessageHandler(object):
     """
@@ -24,6 +25,7 @@ class MessageHandler(object):
             sys.stdout.write("\x1b7\x1b[%d;%df%s\x1b8" % (row, 60, line))
             sys.stdout.flush()
     def user_message(self, msg=""):
+        print("\033[30;1H") # Place the (invisible) cursor at line 30, column 1
         print("\x1b7\x1b[%d;%df%s\x1b8" % (26, 5, "{:<54}".format(msg)))
 
 class MauMau(Exception):
@@ -203,7 +205,7 @@ class AIPlayer(Player):
         elif matching_rank:
             self.play(matching_rank[0])
         return
-    def __repr__(self):
+    def _repr(self):
         """
         Print a single box with the player's name and the number of cards in the
         player's hand in it.
@@ -216,6 +218,8 @@ class AIPlayer(Player):
                     + u"\u2502" + "     " + u"\u2502\n"
                     + u"\u2502" + " " * 5 + u"\u2502\n")
         return top + interior + bottom
+    def __repr__(self):
+        return self._repr()
 
 class HumanPlayer(Player):
     """
@@ -225,7 +229,6 @@ class HumanPlayer(Player):
         """
         Get a single character user input.
         """
-        print("\033[30;1H") # Place the (invisible) cursor at line 30, column 1
         self.message.user_message(msg)
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)    # store old terminal settings
@@ -305,16 +308,27 @@ class Game(object):
     of the players in Game().player_list, breaking out of the endless loop in
     Game().play() only if either MauMau or GameAbort is raised.
     """
-    def __init__(self):
+    def __init__(self, demo=False):
         """
         Sets the stage: Shuffles the deck, hands out 7 cards to each player
         and places a card in the middle.
+        demo = True creates a game with 3 AI players.
         """
         self.message = MessageHandler()
         self.deck = Deck()
         self.central_stack = []
-        self.player_list = [AIPlayer(self, "Fritz"), AIPlayer(self, "Franz"), HumanPlayer(self, "Horst")]
+        if not demo:
+            self.horst = HumanPlayer(self, "Horst")
+        else:
+            # Patch "Horst" to be an AIPlayer with the same __repr__ as a human player
+            self.horst = AIPlayer(self, "Horst")
+            self.horst._repr = types.MethodType(HumanPlayer.__repr__, self.horst)
+        self.player_list = [AIPlayer(self, "Fritz"), AIPlayer(self, "Franz"), self.horst]
         self.players = cycle(self.player_list)
+        # When simulating 3 random players a million times, it turns out that the
+        # last player has a 2% handicap compared to the others. Hence: Random beginner.
+        for _ in range(randint(0, 2)):
+            next(self.players)
         # Distribute cards.
         for _ in range(7):
             for _ in range(3):
@@ -335,7 +349,9 @@ class Game(object):
         return top_card.suite == card.suite or top_card.rank == card.rank
     def play(self):
         skipped = False
+        length = 0
         while True:
+            length += 1
             # Print the game
             print(self)
             # Next player
@@ -347,7 +363,7 @@ class Game(object):
                 # Winner, winner, chicken dinner!
                 print(self)
                 self.message.push("{} has won!".format(self.current_player.name))
-                if type(self.current_player) == AIPlayer:
+                if self.current_player != self.horst:
                     self.message.user_message("Sorry, you have lost against {}!".format(self.current_player.name))
                 else:
                     self.message.user_message("Congratulations {}, you have won this game!".format(self.current_player.name))
@@ -355,6 +371,8 @@ class Game(object):
             except GameAbort:
                 self.message.user_message("Thank you for playing!")
                 break
+        return self.current_player.name, length
+
     def __repr__(self):
         """
         Representing unicode string for the game: First row is Fritz, then Franz, then Horst (the human player).
