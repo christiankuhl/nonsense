@@ -65,11 +65,11 @@ class Player(object):
         self.name = name
         self.message = self.game.message
     def take_card(self):
-        self.cards.append(self.game.deck.pop())
         if not self.game.deck:
             self.game.deck = self.game.central_stack[:-1]
-            self.central_stack = self.game.central_stack[-1]
+            self.game.central_stack = [self.game.central_stack[-1]]
             shuffle(self.game.deck)
+        self.cards.append(self.game.deck.pop())
     def handle_sevens(self):
         for _ in range(self.game.sevens):
             self.take_card()
@@ -111,6 +111,7 @@ class AIPlayer(Player):
             return False
         else:
             self.take_card()
+            self.message.push("{} has to draw a card.".format(self.name))
             matching_suite = [c for c in self.cards if c.suite == top_card.suite]
             matching_rank = [c for c in self.cards if c.rank == top_card.rank]
             if matching_suite:
@@ -159,6 +160,7 @@ class HumanPlayer(Player):
             if self.game.sevens:
                 self.handle_sevens()
             self.take_card()
+            self.message.push("{} has to draw a card.".format(self.name))
             print(self.game)
         matching_suite = [c for c in self.cards if c.suite == top_card.suite]
         matching_rank = [c for c in self.cards if c.rank == top_card.rank]
@@ -171,6 +173,8 @@ class HumanPlayer(Player):
                     card_index = self.get_user_input()
                     card = self.cards(card_index)
                     if self.game.is_legal(card):
+                        if card.rank != "7" and self.game.sevens:
+                            self.handle_sevens()
                         self.play(card)
                         self.message.user_message("")
                         break
@@ -240,7 +244,7 @@ class Game(object):
                 if type(self.current_player) == AIPlayer:
                     self.message.user_message("Sorry, you have lost against {}!".format(self.current_player.name))
                 else:
-                    self.message.user_message("Congratulations, you have won this game!")
+                    self.message.user_message("Congratulations {}, you have won this game!".format(self.current_player.name))
                 break
     def __repr__(self):
         anchor = "\x1b7\x1b[1;1f"
@@ -255,7 +259,7 @@ if __name__ == "__main__":
     game = Game()
     try:
         game.play()
-    except:
+    except GameAbort:
         pass
     finally:
         os.system('setterm -cursor on')
