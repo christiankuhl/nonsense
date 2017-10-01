@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
-from itertools import product, cycle
-from collections import defaultdict, deque
-from random import shuffle, randint
+from cardgames import Card, Hand, Deck
+from itertools import cycle
+from collections import deque
+from random import randint
 import time
 import os
 import sys
@@ -39,49 +40,6 @@ class GameAbort(Exception):
     Exception raised when the user wants to end the game.
     """
     pass
-
-class Card(object):
-    """
-    A Card is made up of a suite and a rank, and a fancy unicode __repr__ string.
-    """
-    symbols = {"spades": u"\u2660",
-               "hearts": u"\u2665",
-               "diamonds": u"\u2666",
-               "clubs": u"\u2663"}
-    def __init__(self, rank, suite):
-        self.rank = rank
-        self.suite = suite
-    def __repr__(self):
-        """
-        Paint a card with the suite symbol in the top left and bottom right corner
-        and the rank printed in the middle.
-        """
-        bottom = u"\u2570"+ u"\u2500"*5 + u"\u256f"
-        if len(self.rank) < 3:
-            rank = self.rank
-        else:
-            rank = self.rank[0].upper()
-        top = u"\u256d" + u"\u2500"*5 + u"\u256e\n"
-        interior = (u"\u2502" + Card.symbols[self.suite] + " " * 4 + u"\u2502\n"
-                    + u"\u2502" + "     " + u"\u2502\n"
-                    + u"\u2502" + " " + "{:>2}".format(rank) + "  " + u"\u2502\n"
-                    + u"\u2502" + "     " + u"\u2502\n"
-                    + u"\u2502" + " " * 4 + Card.symbols[self.suite] + u"\u2502\n")
-        return top + interior + bottom
-
-class Hand(list):
-    """
-    A Hand() object is just a list of Card() objects, which additionally can be
-    addressed by an alphabetical index in order for the user to be able to
-    select a card with a single key press.
-    """
-    alphabet = "123456789abcdefghijklmnopqrstuvwxyz"
-    def __call__(self, index):
-        position = Hand.alphabet.find(index.lower())
-        if position > -1:
-            return self[position]
-        else:
-            raise IndexError
 
 class Player(object):
     """
@@ -275,7 +233,6 @@ class HumanPlayer(Player):
                     raise GameAbort
                 else:
                     continue
-
     def __repr__(self):
         """
         Displays the human player's hand.
@@ -290,17 +247,6 @@ class HumanPlayer(Player):
             # Occurs when the human player has won.
             hand = "\n".join([" " * 59] * 7)
         return hand
-
-class Deck(list):
-    """
-    A Deck is a shuffeled cartesian product of Deck.suites and Deck.ranks.
-    """
-    suites = ["spades", "hearts", "diamonds", "clubs"]
-    ranks = [str(n) for n in range(7, 11)] + ["jack", "queen", "king", "ace"]
-    base_deck = list(map(lambda c: Card(*c), list(product(ranks, suites))))
-    def __init__(self):
-        shuffle(Deck.base_deck)
-        super().__init__(Deck.base_deck)
 
 class Game(object):
     """
