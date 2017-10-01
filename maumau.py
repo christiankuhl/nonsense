@@ -115,7 +115,7 @@ class Player(object):
         matching_suite = [c for c in self.cards if c.suite == top_card.suite]
         matching_rank = [c for c in self.cards if c.rank == top_card.rank]
         return matching_suite, matching_rank
-    def move(self, skipped):
+    def move(self):
         """
         Automates the players choices as far as possible regardless of if it is
         a human or AI player. Returns True, if we have to skip one round, False,
@@ -125,8 +125,9 @@ class Player(object):
         # If the top card is a 8, we have to skip this round if the 8 is still
         # effective, that is, if no other player before us has skipped because
         # of this card.
-        if top_card.rank == "8" and not skipped:
+        if self.game.eights:
             self.message.push("{} has to skip one round.".format(self.name))
+            self.game.eights = 0
             return True
         # If the top card is a 7, we can avoid having to draw 2(n) cards if we play
         # a 7 of our own. However, we leave this choice (if there is one) to the
@@ -151,7 +152,8 @@ class Player(object):
         return None
     def play(self, card):
         """
-        Play out a card, announce that we have won by raising MauMau
+        Play out a card, announce that we have won by raising MauMau, increment
+        and decrement the counters of unhandeled sevens and eights
         """
         self.cards.remove(card)
         self.game.central_stack.append(card)
@@ -160,6 +162,10 @@ class Player(object):
             self.game.sevens += 1
         else:
             self.game.sevens = 0
+        if card.rank == "8":
+            self.game.eights = 1
+        else:
+            self.game.eights = 0
         if not self.cards:
             raise MauMau
 
@@ -168,19 +174,19 @@ class AIPlayer(Player):
     Fairly unintelligent AI player - simply follows the rules and prefers dick
     moves over harmless ones.
     """
-    def move(self, skipped):
+    def move(self):
         # Delegate to general Player object. If there is already a decision,
         # we are done. Otherwise, select the next best dick move.
-        auto_decision = super().move(skipped)
+        auto_decision = super().move()
         if auto_decision is not None:
-            return auto_decision
+            return
         top_card = self.game.central_stack[-1]
         # Always respond to an "active" seven with a seven
         if top_card.rank == "7" and self.game.sevens:
             sevens = [c for c in self.cards if c.rank == "7"]
             if sevens:
                 self.play(sevens[0])
-                return False
+                return
             else:
                 self.handle_sevens()
         # Otherwise, select next best a****** move
@@ -196,7 +202,7 @@ class AIPlayer(Player):
                 self.play(matching_suite[0])
         elif matching_rank:
             self.play(matching_rank[0])
-        return False
+        return
     def __repr__(self):
         """
         Print a single box with the player's name and the number of cards in the
@@ -231,15 +237,15 @@ class HumanPlayer(Player):
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings) # restore old settings
         return ch
-    def move(self, skipped):
+    def move(self):
         """
-        Human player move. Automates the game mechanics as far as possible.
+        Human player move.
         """
         # Delegate to general Player object. If there is already a decision,
         # we are done. Otherwise, select the next best dick move.
-        auto_decision = super().move(skipped)
+        auto_decision = super().move()
         if auto_decision is not None:
-            return auto_decision
+            return
         # At this point, there are still choices left to the user. Loop until
         # we either get a valid card to play or the user decides to end the game.
         while True:
@@ -309,15 +315,21 @@ class Game(object):
         self.central_stack = []
         self.player_list = [AIPlayer(self, "Fritz"), AIPlayer(self, "Franz"), HumanPlayer(self, "Horst")]
         self.players = cycle(self.player_list)
+        # Distribute cards.
         for _ in range(7):
             for _ in range(3):
                 self.current_player = next(self.players)
                 self.current_player.take_card()
         self.central_stack.append(self.deck.pop())
+        # Set up central counters for the number of unhandeled sevens and eights.
         if self.central_stack[-1].rank == "7":
             self.sevens = 1
         else:
             self.sevens = 0
+        if self.central_stack[-1].rank == "8":
+            self.eights = 1
+        else:
+            self.eights = 0
     def is_legal(self, card):
         top_card = self.central_stack[-1]
         return top_card.suite == card.suite or top_card.rank == card.rank
@@ -330,10 +342,7 @@ class Game(object):
             self.current_player = next(self.players)
             time.sleep(1)
             try:
-                # Get the player to move. Hand over the information if there
-                # is an "active" 8 in the middle which no one has skipped yet
-                # in the boolean "skipped"
-                skipped = self.current_player.move(skipped)
+                self.current_player.move()
             except MauMau:
                 # Winner, winner, chicken dinner!
                 print(self)
