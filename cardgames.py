@@ -37,12 +37,49 @@ class Hand(list):
     select a card with a single key press.
     """
     alphabet = "123456789abcdefghijklmnopqrstuvwxyz"
+    def __init__(self, *args, style="horizontal", name="", maxwidth=59, **kwargs):
+        self.style = style
+        self.name = name
+        self.maxwidth = maxwidth
+        super().__init__(*args, **kwargs)
     def __call__(self, index):
         position = Hand.alphabet.find(index.lower())
         if position > -1:
             return self[position]
         else:
             raise IndexError
+    def repr(self, style="horizontal"):
+        if style == "horizontal":
+            try:
+                repr_string = "\n".join(map(lambda arg: "{:<{maxwidth}}".format(arg, maxwidth=self.maxwidth),
+                                     ["".join([str(card).split("\n")[index][:4]
+                                                for card in self[:-1]])
+                                        + str(self[-1]).split("\n")[index]
+                                                        for index in range(7)]))
+            except IndexError:
+                # No cards to be displayed
+                repr_string = "\n".join([" " * self.maxwidth] * 7)
+        elif style == "vertical":
+            try:
+                repr_string = "\n".join([l for c in self[:-1] for l in str(c).split("\n")[:4]]) + "\n" + str(self[-1])
+            except IndexError:
+                repr_string = "\n".join([" " * 7] * 7)
+        elif style == "hidden":
+            # Print a single box with the player's name and the number of cards in the
+            # player's hand in it.
+            top = u"\u256d" + u"\u2500"*5 + u"\u256e\n"
+            bottom = u"\u2570"+ u"\u2500"*5 + u"\u256f"
+            interior = (u"\u2502" + " " * 5 + u"\u2502\n"
+                        + u"\u2502" + "{:^5}".format(self.name) + u"\u2502\n"
+                        + u"\u2502" + " " + "{:>2}".format(len(self)) + "  " + u"\u2502\n"
+                        + u"\u2502" + "     " + u"\u2502\n"
+                        + u"\u2502" + " " * 5 + u"\u2502\n")
+            repr_string = top + interior + bottom
+        elif style == "top":
+            repr_string = str(self[-1])
+        return repr_string
+    def __repr__(self):
+        return self.repr(self.style)
 
 class Deck(list):
     """

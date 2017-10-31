@@ -3,7 +3,7 @@
 from cardgames import Card, Hand, Deck
 from itertools import cycle
 from collections import deque
-from random import randint
+from random import randint, shuffle
 import time
 import os
 import sys
@@ -47,7 +47,7 @@ class Player(object):
     and playing cards.
     """
     def __init__(self, game, name):
-        self.cards = Hand()
+        self.cards = Hand(style=self.__class__.style, name=name)
         self.game = game
         self.name = name
         self.message = self.game.message
@@ -128,12 +128,15 @@ class Player(object):
             self.game.eights = 0
         if not self.cards:
             raise MauMau
+    def __repr__(self):
+        return self.cards.repr(style=self.style)
 
 class AIPlayer(Player):
     """
     Fairly unintelligent AI player - simply follows the rules and prefers dick
     moves over harmless ones.
     """
+    style = "hidden" # set display style for output
     def move(self):
         # Delegate to general Player object. If there is already a decision,
         # we are done. Otherwise, select the next best dick move.
@@ -163,26 +166,12 @@ class AIPlayer(Player):
         elif matching_rank:
             self.play(matching_rank[0])
         return
-    def _repr(self):
-        """
-        Print a single box with the player's name and the number of cards in the
-        player's hand in it.
-        """
-        top = u"\u256d" + u"\u2500"*5 + u"\u256e\n"
-        bottom = u"\u2570"+ u"\u2500"*5 + u"\u256f"
-        interior = (u"\u2502" + " " * 5 + u"\u2502\n"
-                    + u"\u2502" + self.name + u"\u2502\n"
-                    + u"\u2502" + " " + "{:>2}".format(len(self.cards)) + "  " + u"\u2502\n"
-                    + u"\u2502" + "     " + u"\u2502\n"
-                    + u"\u2502" + " " * 5 + u"\u2502\n")
-        return top + interior + bottom
-    def __repr__(self):
-        return self._repr()
 
 class HumanPlayer(Player):
     """
     Class for human players.
     """
+    style = "horizontal" # set display style for output
     def get_user_input(self, msg="Enter the card you want to play! [X to exit game]"):
         """
         Get a single character user input.
@@ -233,20 +222,6 @@ class HumanPlayer(Player):
                     raise GameAbort
                 else:
                     continue
-    def __repr__(self):
-        """
-        Displays the human player's hand.
-        """
-        try:
-            hand = "\n".join(map("{:<59}".format,
-                                 ["".join([str(card).split("\n")[index][:4]
-                                            for card in self.cards[:-1]])
-                                    + str(self.cards[-1]).split("\n")[index]
-                                                    for index in range(7)]))
-        except IndexError:
-            # Occurs when the human player has won.
-            hand = "\n".join([" " * 59] * 7)
-        return hand
 
 class Game(object):
     """
@@ -262,13 +237,13 @@ class Game(object):
         """
         self.message = MessageHandler()
         self.deck = Deck()
-        self.central_stack = []
+        self.central_stack = Hand(style="top")
         if not demo:
             self.horst = HumanPlayer(self, "Horst")
         else:
             # Patch "Horst" to be an AIPlayer with the same __repr__ as a human player
             self.horst = AIPlayer(self, "Horst")
-            self.horst._repr = types.MethodType(HumanPlayer.__repr__, self.horst)
+            self.horst.cards.style = "horizontal"
         self.player_list = [AIPlayer(self, "Fritz"), AIPlayer(self, "Franz"), self.horst]
         self.players = cycle(self.player_list)
         # When simulating 3 random players a million times, it turns out that the
@@ -325,10 +300,10 @@ class Game(object):
         """
         anchor = "\x1b7\x1b[1;1f" # ANSI escape sequence to start at row 1, columm 1
         cards = "\n".join([str(player) for player in self.player_list]) # the players' cards
-        center = [""] * 4 + [(" " * 7) + line for line in str(self.central_stack[-1]).splitlines()] + [""]*12 # the central stack gets printed in the middle
+        center = [""] * 4 + [(" " * 7) + line for line in str(self.central_stack).splitlines()] + [""]*12 # the central stack gets printed in the middle
         # Join everything up.
         all = "\n".join([anchor] + [c + l for c, l in zip(cards.splitlines(), center)] +
-                ["{:<59}".format("  ".join(["{:>2}".format(Hand.alphabet[i].upper()) for i in range(len(self.player_list[2].cards))]))] + ["\x1b8"])
+                ["{:<59}".format("  ".join(["{:>2}".format(Hand.alphabet[i].upper()) for i in range(len(self.horst.cards))]))] + ["\x1b8"])
         return all
 
 if __name__ == "__main__":
